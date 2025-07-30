@@ -367,8 +367,39 @@ This web site is using ${"`"}markedjs/marked${"`"}.
             // Click to load file
             historyElement.addEventListener('click', (e) => {
                 // Don't load if clicking on delete button or title input
-                if (e.target.classList.contains('history-delete-btn') || e.target.tagName === 'INPUT') return;
+                if (e.target.classList.contains('history-delete-btn') ||
+                    e.target.tagName === 'INPUT') return;
                 loadHistoryItem(item.id);
+            });
+
+            // Title click to edit (single click with delay to distinguish from item click)
+            const titleElement = historyElement.querySelector('.history-title');
+            let titleClickTimeout;
+            titleElement.addEventListener('click', (e) => {
+                e.stopPropagation();
+
+                // Clear any existing timeout
+                if (titleClickTimeout) {
+                    clearTimeout(titleClickTimeout);
+                }
+
+                // Set timeout to edit title after 300ms (if no double-click occurs)
+                titleClickTimeout = setTimeout(() => {
+                    editHistoryTitle(item.id, titleElement);
+                }, 300);
+            });
+
+            // Double-click title to edit immediately
+            titleElement.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+
+                // Clear the single-click timeout
+                if (titleClickTimeout) {
+                    clearTimeout(titleClickTimeout);
+                }
+
+                editHistoryTitle(item.id, titleElement);
             });
 
             // Delete button
@@ -380,11 +411,11 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                 }
             });
 
-            // Double-click title to edit
-            const titleElement = historyElement.querySelector('.history-title');
-            titleElement.addEventListener('dblclick', (e) => {
+            // Right-click context menu for title and delete
+            titleElement.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
                 e.stopPropagation();
-                editHistoryTitle(item.id, titleElement);
+                showContextMenu(e, item.id, titleElement);
             });
 
             historyContainer.appendChild(historyElement);
@@ -437,6 +468,58 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         input.addEventListener('click', (e) => {
             e.stopPropagation();
         });
+    };
+
+    let showContextMenu = (event, itemId, titleElement) => {
+        // Remove existing context menu if any
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+
+        // Create context menu
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        menu.innerHTML = `
+            <div class="context-menu-item" data-action="rename">✏️ Rename</div>
+            <div class="context-menu-item" data-action="delete">🗑️ Delete</div>
+        `;
+
+        // Position menu
+        menu.style.left = event.pageX + 'px';
+        menu.style.top = event.pageY + 'px';
+
+        // Add to document
+        document.body.appendChild(menu);
+
+        // Handle menu clicks
+        menu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = e.target.dataset.action;
+
+            if (action === 'rename') {
+                editHistoryTitle(itemId, titleElement);
+            } else if (action === 'delete') {
+                const title = titleElement.textContent;
+                if (confirm(`Delete "${title}"?`)) {
+                    deleteHistoryItem(itemId);
+                }
+            }
+
+            menu.remove();
+        });
+
+        // Remove menu when clicking elsewhere
+        const removeMenu = (e) => {
+            if (!menu.contains(e.target)) {
+                menu.remove();
+                document.removeEventListener('click', removeMenu);
+            }
+        };
+
+        setTimeout(() => {
+            document.addEventListener('click', removeMenu);
+        }, 10);
     };
 
     let updateActiveHistoryItem = (id) => {
