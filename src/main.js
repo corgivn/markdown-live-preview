@@ -497,12 +497,13 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                 currentHistoryId = newId;
                 renderHistoryList();
                 updateActiveHistoryItem(newId);
-            } else {
-                // Create new empty file
-                editor.setValue('');
-                currentHistoryId = null;
-                updateActiveHistoryItem(null);
             }
+
+            // Create new empty file
+            editor.setValue(defaultInput);
+            convert(defaultInput); // Show default content
+            currentHistoryId = null;
+            updateActiveHistoryItem(null);
         });
 
         // Initial render
