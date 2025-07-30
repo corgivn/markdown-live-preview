@@ -1,16 +1,18 @@
-import Storehouse from 'storehouse-js';
-import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/+esm';
-import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import 'github-markdown-css/github-markdown-light.css';
+import * as monaco from 'https://cdn.jsdelivr.net/npm/monaco-editor@0.52.2/+esm';
+import { marked } from 'marked';
+import Storehouse from 'storehouse-js';
 
 const init = () => {
     let hasEdited = false;
     let scrollBarSync = false;
+    let currentHistoryId = null;
 
     const localStorageNamespace = 'com.markdownlivepreview';
     const localStorageKey = 'last_state';
     const localStorageScrollBarKey = 'scroll_bar_settings';
+    const localStorageHistoryKey = 'history_files';
     const confirmationMessage = 'Are you sure you want to reset? Your changes will be lost.';
     // default template
     const defaultInput = `# Markdown syntax guide
@@ -116,6 +118,10 @@ This web site is using ${"`"}markedjs/marked${"`"}.
             let value = editor.getValue();
             convert(value);
             saveLastContent(value);
+            // Auto-save to current history item if exists
+            if (currentHistoryId) {
+                updateHistoryItem(currentHistoryId, value);
+            }
         });
 
         editor.onDidScrollChange((e) => {
@@ -215,6 +221,235 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         }, 1000)
     };
 
+    // ----- history management -----
+
+    let generateId = () => {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    };
+
+    let createHistoryItem = (title, content) => {
+        const id = generateId();
+        const now = new Date();
+        const item = {
+            id: id,
+            title: title || `Untitled ${now.toLocaleDateString()}`,
+            content: content || '',
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString()
+        };
+
+        let history = getHistoryList();
+        history.unshift(item); // Add to beginning
+        saveHistoryList(history);
+        return id;
+    };
+
+    let updateHistoryItem = (id, content = null, title = null) => {
+        let history = getHistoryList();
+        const index = history.findIndex(item => item.id === id);
+        if (index !== -1) {
+            if (content !== null) {
+                history[index].content = content;
+            }
+            if (title !== null) {
+                history[index].title = title;
+            }
+            history[index].updatedAt = new Date().toISOString();
+            saveHistoryList(history);
+            renderHistoryList();
+        }
+    };
+
+    let deleteHistoryItem = (id) => {
+        let history = getHistoryList();
+        history = history.filter(item => item.id !== id);
+        saveHistoryList(history);
+        if (currentHistoryId === id) {
+            currentHistoryId = null;
+        }
+        renderHistoryList();
+    };
+
+    let getHistoryList = () => {
+        const history = Storehouse.getItem(localStorageNamespace, localStorageHistoryKey);
+        return history || [];
+    };
+
+    let saveHistoryList = (history) => {
+        let expiredAt = new Date(2099, 1, 1);
+        Storehouse.setItem(localStorageNamespace, localStorageHistoryKey, history, expiredAt);
+    };
+
+    let loadHistoryItem = (id) => {
+        const history = getHistoryList();
+        const item = history.find(h => h.id === id);
+        if (item) {
+            currentHistoryId = id;
+            editor.setValue(item.content);
+            convert(item.content);
+            updateActiveHistoryItem(id);
+        }
+    };
+
+    let getHistoryItemTitle = (content) => {
+        // Extract first line as title, remove markdown heading syntax
+        const lines = content.split('\n');
+        for (let line of lines) {
+            const trimmed = line.trim();
+            if (trimmed) {
+                return trimmed.replace(/^#+\s*/, '').substring(0, 50);
+            }
+        }
+        return 'Untitled';
+    };
+
+    let formatDate = (dateString) => {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMs / 3600000);
+        const diffDays = Math.floor(diffMs / 86400000);
+
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+
+        return date.toLocaleDateString();
+    };
+
+    let getPreviewText = (content) => {
+        // Remove markdown syntax and get first few words
+        return content
+            .replace(/#+\s*/g, '') // Remove headers
+            .replace(/\*\*(.*?)\*\*/g, '$1') // Remove bold
+            .replace(/\*(.*?)\*/g, '$1') // Remove italic
+            .replace(/\[(.*?)\]\(.*?\)/g, '$1') // Remove links
+            .replace(/`(.*?)`/g, '$1') // Remove inline code
+            .split('\n')
+            .filter(line => line.trim())
+            .slice(0, 2)
+            .join(' ')
+            .substring(0, 100);
+    };
+
+    let renderHistoryList = () => {
+        const historyContainer = document.getElementById('history-list');
+        const history = getHistoryList();
+
+        historyContainer.innerHTML = '';
+
+        if (history.length === 0) {
+            historyContainer.innerHTML = '<div class="no-history">No files yet. Start typing to create your first file!</div>';
+            return;
+        }
+
+        history.forEach(item => {
+            const historyElement = document.createElement('div');
+            historyElement.className = 'history-item';
+            if (item.id === currentHistoryId) {
+                historyElement.classList.add('active');
+            }
+
+            const title = item.title || getHistoryItemTitle(item.content);
+            const preview = getPreviewText(item.content);
+
+            historyElement.innerHTML = `
+                <div class="history-title" data-item-id="${item.id}">${title}</div>
+                <div class="history-date">${formatDate(item.updatedAt)}</div>
+                ${preview ? `<div class="history-preview">${preview}</div>` : ''}
+            `;
+
+            // Click to load file
+            historyElement.addEventListener('click', (e) => {
+                // Don't load if clicking on title input
+                if (e.target.tagName === 'INPUT') return;
+                loadHistoryItem(item.id);
+            });
+
+            // Double-click title to edit
+            const titleElement = historyElement.querySelector('.history-title');
+            titleElement.addEventListener('dblclick', (e) => {
+                e.stopPropagation();
+                editHistoryTitle(item.id, titleElement);
+            });
+
+            // Right-click context menu for delete
+            historyElement.addEventListener('contextmenu', (e) => {
+                e.preventDefault();
+                if (confirm('Delete this file?')) {
+                    deleteHistoryItem(item.id);
+                }
+            });
+
+            historyContainer.appendChild(historyElement);
+        });
+    };
+
+    let editHistoryTitle = (itemId, titleElement) => {
+        const currentTitle = titleElement.textContent;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.className = 'history-title-input';
+        input.value = currentTitle;
+
+        // Replace title with input
+        titleElement.style.display = 'none';
+        titleElement.parentNode.insertBefore(input, titleElement);
+        input.focus();
+        input.select();
+
+        const saveTitle = () => {
+            const newTitle = input.value.trim();
+            if (newTitle && newTitle !== currentTitle) {
+                updateHistoryItem(itemId, null, newTitle);
+                titleElement.textContent = newTitle;
+            }
+            input.remove();
+            titleElement.style.display = 'block';
+        };
+
+        const cancelEdit = () => {
+            input.remove();
+            titleElement.style.display = 'block';
+        };
+
+        // Save on Enter, cancel on Escape
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                saveTitle();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                cancelEdit();
+            }
+        });
+
+        // Save on blur
+        input.addEventListener('blur', saveTitle);
+
+        // Prevent event bubbling
+        input.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    };
+
+    let updateActiveHistoryItem = (id) => {
+        document.querySelectorAll('.history-item').forEach(item => {
+            item.classList.remove('active');
+        });
+
+        const history = getHistoryList();
+        const index = history.findIndex(item => item.id === id);
+        if (index !== -1) {
+            const historyElements = document.querySelectorAll('.history-item');
+            if (historyElements[index]) {
+                historyElements[index].classList.add('active');
+            }
+        }
+    };
+
     // ----- setup -----
 
     // setup navigation actions
@@ -236,6 +471,38 @@ This web site is using ${"`"}markedjs/marked${"`"}.
                     // nothing to do
                 });
         });
+    };
+
+    let setupSidebar = () => {
+        // Toggle sidebar
+        document.getElementById('toggle-sidebar').addEventListener('click', () => {
+            const sidebar = document.getElementById('sidebar');
+            sidebar.classList.toggle('collapsed');
+
+            const toggleBtn = document.getElementById('toggle-sidebar');
+            toggleBtn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+        });
+
+        // New file button
+        document.getElementById('new-file').addEventListener('click', () => {
+            const content = editor.getValue();
+            if (content.trim() && content !== defaultInput) {
+                // Save current content as new history item
+                const title = getHistoryItemTitle(content);
+                const newId = createHistoryItem(title, content);
+                currentHistoryId = newId;
+                renderHistoryList();
+                updateActiveHistoryItem(newId);
+            } else {
+                // Create new empty file
+                editor.setValue('');
+                currentHistoryId = null;
+                updateActiveHistoryItem(null);
+            }
+        });
+
+        // Initial render
+        renderHistoryList();
     };
 
     // ----- local state -----
@@ -265,7 +532,7 @@ This web site is using ${"`"}markedjs/marked${"`"}.
         const divider = document.getElementById('split-divider');
         const leftPane = document.getElementById('edit');
         const rightPane = document.getElementById('preview');
-        const container = document.getElementById('container');
+        const container = document.getElementById('main-content');
 
         let isDragging = false;
 
@@ -346,6 +613,7 @@ This web site is using ${"`"}markedjs/marked${"`"}.
     }
     setupResetButton();
     setupCopyButton(editor);
+    setupSidebar();
 
     let scrollBarSettings = loadScrollBarSettings() || false;
     initScrollBarSync(scrollBarSettings);

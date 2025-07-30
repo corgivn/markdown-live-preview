@@ -1,4 +1,5 @@
-html, body {
+html,
+body {
   color: #333;
   overflow-x: hidden;
   margin: 0;
@@ -13,10 +14,16 @@ html, body {
 body {
   display: flex;
   flex-direction: column;
-  height:100vh;
+  height: 100vh;
 }
 
-h1, h2, h3, h4, h5, h6, p {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p {
   font-size: 1em;
   margin: 0;
   padding: 0;
@@ -29,8 +36,7 @@ p {
 
 a:link,
 a:visited,
-a:hover
-a:active {
+a:hover a:active {
   color: #333;
   text-decoration: none;
 }
@@ -50,7 +56,10 @@ header {
   color: #fff;
 }
 
-header a:link, header a:hover, header a:visited, header a:active {
+header a:link,
+header a:hover,
+header a:visited,
+header a:active {
   color: #fff;
 }
 
@@ -59,33 +68,33 @@ header a:hover {
 }
 
 #menu-items {
-    display: flex;
+  display: flex;
 }
 
 #reset-button {
-    margin-left: 16px;
+  margin-left: 16px;
 }
 
 #copy-button {
-    margin-left: 16px;
+  margin-left: 16px;
 }
 
 #sync-button {
-    margin-left: 16px;
-    -webkit-user-select: none;
-    -moz-user-select: none;
-    -ms-user-select: none;
-    user-select: none;
+  margin-left: 16px;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
 }
 
 header input[type="checkbox"] {
-    vertical-align: middle;
-    margin-right: 4px;
-    margin-top: 0px;
+  vertical-align: middle;
+  margin-right: 4px;
+  margin-top: 0px;
 }
 
 #github {
-    padding-right: 32px;
+  padding-right: 32px;
 }
 
 #github img {
@@ -149,6 +158,144 @@ footer {
   display: flex;
   height: 100%;
   width: 100%;
+}
+
+/* Sidebar styles */
+.sidebar {
+  width: 250px;
+  background-color: #f8f9fa;
+  border-right: 1px solid #e1e5e9;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+}
+
+.sidebar.collapsed {
+  width: 0;
+  overflow: hidden;
+}
+
+.sidebar-header {
+  padding: 12px 16px;
+  background-color: #f1f3f4;
+  border-bottom: 1px solid #e1e5e9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.sidebar-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+}
+
+.sidebar-controls {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-toggle,
+.btn-new {
+  background: none;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  padding: 4px 8px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #666;
+}
+
+.btn-toggle:hover,
+.btn-new:hover {
+  background-color: #e9ecef;
+  border-color: #999;
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 0;
+}
+
+.history-item {
+  padding: 8px 16px;
+  cursor: pointer;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.history-item:hover {
+  background-color: #e9ecef;
+}
+
+.history-item.active {
+  background-color: #007bff;
+  color: white;
+}
+
+.history-item.active .history-date {
+  color: #cce7ff;
+}
+
+.history-title {
+  font-size: 13px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.history-date {
+  font-size: 11px;
+  color: #888;
+}
+
+.history-preview {
+  font-size: 11px;
+  color: #666;
+  line-height: 1.3;
+  max-height: 2.6em;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.history-title-input {
+  background: none;
+  border: 1px solid #007bff;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-size: 13px;
+  font-weight: 500;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.history-title-input:focus {
+  outline: none;
+  border-color: #0056b3;
+  background-color: white;
+}
+
+.no-history {
+  padding: 16px;
+  text-align: center;
+  color: #888;
+  font-size: 12px;
+  font-style: italic;
+}
+
+/* Main content area */
+.main-content {
+  flex: 1;
+  display: flex;
+  height: 100%;
 }
 
 .editor-pane,
