@@ -356,16 +356,28 @@ This web site is using ${"`"}markedjs/marked${"`"}.
             const preview = getPreviewText(item.content);
 
             historyElement.innerHTML = `
-                <div class="history-title" data-item-id="${item.id}">${title}</div>
+                <div class="history-header">
+                    <div class="history-title" data-item-id="${item.id}">${title}</div>
+                    <button class="history-delete-btn" title="Delete file">✕</button>
+                </div>
                 <div class="history-date">${formatDate(item.updatedAt)}</div>
                 ${preview ? `<div class="history-preview">${preview}</div>` : ''}
             `;
 
             // Click to load file
             historyElement.addEventListener('click', (e) => {
-                // Don't load if clicking on title input
-                if (e.target.tagName === 'INPUT') return;
+                // Don't load if clicking on delete button or title input
+                if (e.target.classList.contains('history-delete-btn') || e.target.tagName === 'INPUT') return;
                 loadHistoryItem(item.id);
+            });
+
+            // Delete button
+            const deleteBtn = historyElement.querySelector('.history-delete-btn');
+            deleteBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if (confirm(`Delete "${title}"?`)) {
+                    deleteHistoryItem(item.id);
+                }
             });
 
             // Double-click title to edit
@@ -373,14 +385,6 @@ This web site is using ${"`"}markedjs/marked${"`"}.
             titleElement.addEventListener('dblclick', (e) => {
                 e.stopPropagation();
                 editHistoryTitle(item.id, titleElement);
-            });
-
-            // Right-click context menu for delete
-            historyElement.addEventListener('contextmenu', (e) => {
-                e.preventDefault();
-                if (confirm('Delete this file?')) {
-                    deleteHistoryItem(item.id);
-                }
             });
 
             historyContainer.appendChild(historyElement);
